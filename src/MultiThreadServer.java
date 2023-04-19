@@ -45,12 +45,21 @@ class ClientHandler implements Runnable {
             String name = null;
             while (true) {
                 byte[] buffer = new byte[1024];
-                int bytesRead = inputStream.read(buffer);
-                if (bytesRead == -1) {
-                    System.out.println("No data received from client");
-                    break;
+                int totalBytesRead = 0;
+                String message = "";
+                while (true) {
+                    int bytesRead = inputStream.read(buffer);
+                    if (bytesRead == -1) {
+                        System.out.println("No data received from client");
+                        break;
+                    }
+                    String partialMessage = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+                    totalBytesRead += bytesRead;
+                    message += partialMessage;
+                    if (message.endsWith("\u0007\u0008") || totalBytesRead >= 20) {
+                        break;
+                    }
                 }
-                String message = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
                 if (!message.endsWith("\u0007\u0008")) {
                     sendErrorMessage(clientSocket);
                     System.out.println("Invalid message format received from client: " + message);
@@ -71,7 +80,7 @@ class ClientHandler implements Runnable {
                 else if (iteration == 1) {
                     System.out.println("2" +message);
                     for (int i = 0; i < name.length() - 2; i++) {
-                        System.out.println("Adding " + name.charAt(i));
+                        //System.out.println("Adding " + name.charAt(i));
                         ascii_value += name.charAt(i);
                     }
 //                    System.out.println("Ascii is " + code);
@@ -80,24 +89,21 @@ class ClientHandler implements Runnable {
                     System.out.println("Ascii is " + code);
                     key = Integer.parseInt(String.valueOf(message.charAt(0)));
 //                    System.out.println("Key is " + key);
-                    switch (key){
-                        case 0:
+                    switch (key) {
+                        case 0 -> {
                             code = (code + 23019) % 65536;
                             System.out.println("Case one");
-                            break;
-                        case 1:
-                            code = (code + 32037) % 65536;
-                            break;
-                        case 2:
-                            code = (code + 18789) % 65536;
-                            break;
-                        case 3:
-                            code = (code + 16443) % 65536;
-                            break;
-                        case 4:
-                            code = (code + 18189) % 65536;
-                            break;
-
+                        }
+                        case 1 -> code = (code + 32037) % 65536;
+                        case 2 -> code = (code + 18789) % 65536;
+                        case 3 -> code = (code + 16443) % 65536;
+                        case 4 -> code = (code + 18189) % 65536;
+                        default -> {
+                            outputStream.write(SERVER_KEY_OUT_OF_RANGE_ERROR.getBytes(StandardCharsets.UTF_8));
+                            outputStream.flush();
+                            clientSocket.close();
+                            System.out.println("SERVER_KEY_OUT_OF_RANGE_ERROR sent");
+                        }
                     }
                     System.out.println("Hash is " + code);
                     String hashOutput = code + "\u0007\u0008";
@@ -109,23 +115,19 @@ class ClientHandler implements Runnable {
                     System.out.println("Client code is " + clientCode);
                     Integer codeForAuth = (ascii_value * 1000) % 65536;
                     System.out.println("Ascii is " + codeForAuth);
-                    switch (key){
-                        case 0:
-                            codeForAuth = (codeForAuth + 32037) % 65536;
-                            break;
-                        case 1:
-                            codeForAuth = (codeForAuth + 29295) % 65536;
-                            break;
-                        case 2:
-                            codeForAuth = (codeForAuth + 13603) % 65536;
-                            break;
-                        case 3:
-                            codeForAuth = (codeForAuth + 29533) % 65536;
-                            break;
-                        case 4:
-                            codeForAuth = (codeForAuth + 21952) % 65536;
-                            break;
-
+                    switch (key) {
+                        case 0 -> codeForAuth = (codeForAuth + 32037) % 65536;
+                        case 1 -> codeForAuth = (codeForAuth + 29295) % 65536;
+                        case 2 -> codeForAuth = (codeForAuth + 13603) % 65536;
+                        case 3 -> codeForAuth = (codeForAuth + 29533) % 65536;
+                        case 4 -> codeForAuth = (codeForAuth + 21952) % 65536;
+                        default -> {
+                            outputStream.write(SERVER_KEY_OUT_OF_RANGE_ERROR.getBytes(StandardCharsets.UTF_8));
+                            outputStream.flush();
+                            clientSocket.close();
+                            System.out.println("SERVER_KEY_OUT_OF_RANGE_ERROR sent");
+                            System.out.println("Wrong key!");
+                        }
                     }
                     System.out.println("Client code result is " + codeForAuth);
                     System.out.println("Need " + clientCode);
@@ -153,6 +155,7 @@ class ClientHandler implements Runnable {
         OutputStream output = clientSocket.getOutputStream();
         String errorMessage = "SERVER_SYNTAX_ERROR\u0007\u0008";
         output.write(errorMessage.getBytes());
+        clientSocket.close();
         System.out.println("Server sent error message to client: " + errorMessage);
     }
 }
