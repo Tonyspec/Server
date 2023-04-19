@@ -10,7 +10,7 @@ public class Server {
             try {
                 Socket socket = serverSocket.accept();
                 System.out.println("Client connected: " + socket.getInetAddress().getHostAddress());
-                Thread thread = new Thread(new ClientHandler(socket));
+                Thread thread = new Thread(new ClientHandler1(socket));
                 thread.start();
             } catch (IOException e) {
                 e.printStackTrace();
