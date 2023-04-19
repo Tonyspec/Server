@@ -19,7 +19,6 @@ public class MultiThreadServer {
 
 class ClientHandler implements Runnable {
     private Socket clientSocket;
-    private static final String SERVER_CONFIRMATION = "12345\u0007\u0008";
     private static final String SERVER_MOVE = "102 MOVE\u0007\u0008";
     private static final String SERVER_TURN_LEFT = "103 TURN LEFT\u0007\u0008";
     private static final String SERVER_TURN_RIGHT = "104 TURN RIGHT\u0007\u0008";
@@ -42,6 +41,8 @@ class ClientHandler implements Runnable {
             OutputStream outputStream = clientSocket.getOutputStream();
 
             Integer iteration = 0, code = 0, key = 0, ascii_value = 0, clientCode = 0;
+            Integer oldX = 0;
+            Integer oldY = 0;
             String name = null;
             while (true) {
                 byte[] buffer = new byte[1024];
@@ -80,7 +81,7 @@ class ClientHandler implements Runnable {
                     clientSocket.close();
                     System.out.println("Long name!");
                 }
-                System.out.println("Client: "+message+iteration);
+                System.out.println("Client: "+message+ " iteration is " + iteration);
                 // handle client's request
 
 
@@ -132,7 +133,12 @@ class ClientHandler implements Runnable {
                     outputStream.flush();
                     System.out.println("KEY_CONFIRMATION sent");
                 } else if (iteration == 2) {
-
+                    String withoutSpaces = message.replaceAll("\\s+", "");
+                    if(withoutSpaces.length() > 7){
+                        sendErrorMessage(clientSocket);
+                        clientSocket.close();
+                        System.out.println("Long confirmation code!");
+                    }
                     try{
                         clientCode = Integer.parseInt(message.substring(0,message.length()-2));
                     }
@@ -142,9 +148,9 @@ class ClientHandler implements Runnable {
                         System.out.println("Not a number!");
                     }
 
-                    System.out.println("Client code is " + clientCode);
+                    //System.out.println("Client code is " + clientCode);
                     Integer codeForAuth = (ascii_value * 1000) % 65536;
-                    System.out.println("Ascii is " + codeForAuth);
+                    //System.out.println("Ascii is " + codeForAuth);
                     switch (key) {
                         case 0 -> codeForAuth = (codeForAuth + 32037) % 65536;
                         case 1 -> codeForAuth = (codeForAuth + 29295) % 65536;
@@ -159,8 +165,8 @@ class ClientHandler implements Runnable {
                             System.out.println("Wrong key!");
                         }
                     }
-                    System.out.println("Client code result is " + codeForAuth);
-                    System.out.println("Need " + clientCode);
+                    //System.out.println("Client code result is " + codeForAuth);
+                    //System.out.println("Need " + clientCode);
                     if(codeForAuth.equals(clientCode)){
                         outputStream.write(SERVER_OK.getBytes(StandardCharsets.UTF_8));
                         outputStream.flush();
@@ -169,9 +175,76 @@ class ClientHandler implements Runnable {
                         outputStream.write(SERVER_LOGIN_FAILED.getBytes(StandardCharsets.UTF_8));
                         clientSocket.close();
                         outputStream.flush();
+                        break;
                     }
-
+                    outputStream.write(SERVER_MOVE.getBytes(StandardCharsets.UTF_8));
+                    outputStream.flush();
                 }
+//                else {
+//
+////                    String[] parts = message.split("\\s+|\u0007|\u0008"); // split by whitespace
+//                    oldX = getX(message);
+//                    oldY = getY(message);
+//                    System.out.println("Coordinates are: " + oldX + " and " + oldY);
+//                    outputStream.write(SERVER_TURN_LEFT.getBytes(StandardCharsets.UTF_8));
+//                    outputStream.flush();
+//                    while (true) {
+//                        // Send MOVE command to move forward
+//                        // and get the response with new coordinates
+//                        outputStream.write(SERVER_MOVE.getBytes(StandardCharsets.UTF_8));
+//                        outputStream.flush();
+//                        int newX = getX(message);
+//                        int newY = getY(message);
+//
+//                        // Check if the new coordinates are the same as the previous ones
+//                        if (newX == oldX && newY == oldY) {
+//                            // If they are the same, the coordinate is blocked
+//                            // so we turn right and try to move forward again
+//                            sendCommand("TURN_RIGHT");
+//                            response = sendCommand("MOVE");
+//                            parts = response.split(" ");
+//                            newX = Integer.parseInt(parts[0]);
+//                            newY = Integer.parseInt(parts[1]);
+//                        }
+//
+//                        // Update the current and previous coordinates
+//                        prevX = currentX;
+//                        prevY = currentY;
+//                        currentX = newX;
+//                        currentY = newY;
+//
+//                        // Check if we have reached the target coordinates
+//                        if (currentX == 0 && currentY == 0) {
+//                            break;
+//                        }
+//
+//                        // Calculate the direction to the target coordinates
+//                        int dx = 0;
+//                        int dy = 0;
+//                        if (currentX > 0) {
+//                            dx = 1;
+//                        } else if (currentX < 0) {
+//                            dx = -1;
+//                        }
+//                        if (currentY > 0) {
+//                            dy = 1;
+//                        } else if (currentY < 0) {
+//                            dy = -1;
+//                        }
+//
+//                        // Turn to face the target coordinates
+//                        if (dx > 0) {
+//                            sendCommand("TURN_RIGHT");
+//                        } else if (dx < 0) {
+//                            sendCommand("TURN_LEFT");
+//                        }
+//                        if (dy > 0) {
+//                            sendCommand("TURN_RIGHT");
+//                        } else if (dy < 0) {
+//                            sendCommand("TURN_LEFT");
+//                        }
+//                    }
+//                }
                 iteration++;
             }
             // close the connection
@@ -188,4 +261,18 @@ class ClientHandler implements Runnable {
         clientSocket.close();
         System.out.println("Server sent error message to client: " + SERVER_SYNTAX_ERROR);
     }
+    private Integer getX(String message){
+        String[] parts = message.split("\\s+|\u0007|\u0008");
+        return Integer.parseInt(parts[1]);
+    }
+    private Integer getY(String message){
+        String[] parts = message.split("\\s+|\u0007|\u0008");
+        return Integer.parseInt(parts[2]);
+    }
+//    private static void sendCommand(String direction){
+//        if(direction.equals("MOVE")){
+//            outputStream.write(SERVER_TURN_LEFT.getBytes(StandardCharsets.UTF_8));
+//            outputStream.flush();
+//        }
+//    }
 }
