@@ -41,30 +41,44 @@ class ClientHandler implements Runnable {
             InputStream inputStream = clientSocket.getInputStream();
             OutputStream outputStream = clientSocket.getOutputStream();
 
-            Integer iteration = 0, code = 0, key = 0, ascii_value = 0;
+            Integer iteration = 0, code = 0, key = 0, ascii_value = 0, clientCode = 0;
             String name = null;
             while (true) {
                 byte[] buffer = new byte[1024];
                 int totalBytesRead = 0;
                 String message = "";
                 while (true) {
-                    int bytesRead = inputStream.read(buffer);
-                    if (bytesRead == -1) {
-                        System.out.println("No data received from client");
-                        break;
+                    clientSocket.setSoTimeout(1000);
+                    try{
+                        int bytesRead = inputStream.read(buffer);
+                        if (bytesRead == -1) {
+                            System.out.println("No data received from client");
+                            break;
+                        }
+                        String partialMessage = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
+                        totalBytesRead += bytesRead;
+                        message += partialMessage;
+                        if (message.endsWith("\u0007\u0008") || totalBytesRead >= 20) {
+                            break;
+                        }
                     }
-                    String partialMessage = new String(buffer, 0, bytesRead, StandardCharsets.UTF_8);
-                    totalBytesRead += bytesRead;
-                    message += partialMessage;
-                    if (message.endsWith("\u0007\u0008") || totalBytesRead >= 20) {
-                        break;
+                    catch(SocketTimeoutException e){
+                        clientSocket.close();
+                        System.out.println("Timeout reached!");
                     }
+
                 }
                 if (!message.endsWith("\u0007\u0008")) {
                     sendErrorMessage(clientSocket);
                     System.out.println("Invalid message format received from client: " + message);
                     clientSocket.close();
                     break;
+                }
+                if(totalBytesRead > 20){
+                    outputStream.write(SERVER_SYNTAX_ERROR.getBytes(StandardCharsets.UTF_8));
+                    outputStream.flush();
+                    clientSocket.close();
+                    System.out.println("Long name!");
                 }
                 System.out.println("Client: "+message+iteration);
                 // handle client's request
@@ -87,7 +101,14 @@ class ClientHandler implements Runnable {
                     System.out.println("Ascii is " + ascii_value);
                     code = (ascii_value * 1000) % 65536;
                     System.out.println("Ascii is " + code);
-                    key = Integer.parseInt(String.valueOf(message.charAt(0)));
+                    try{
+                        key = Integer.parseInt(String.valueOf(message.charAt(0)));
+                    }
+                    catch (NumberFormatException e){
+                        sendErrorMessage(clientSocket);
+                        clientSocket.close();
+                        System.out.println("Not a number!");
+                    }
 //                    System.out.println("Key is " + key);
                     switch (key) {
                         case 0 -> {
@@ -111,7 +132,16 @@ class ClientHandler implements Runnable {
                     outputStream.flush();
                     System.out.println("KEY_CONFIRMATION sent");
                 } else if (iteration == 2) {
-                    Integer clientCode = Integer.parseInt(message.substring(0,message.length()-2));
+
+                    try{
+                        clientCode = Integer.parseInt(message.substring(0,message.length()-2));
+                    }
+                    catch (NumberFormatException e){
+                        sendErrorMessage(clientSocket);
+                        clientSocket.close();
+                        System.out.println("Not a number!");
+                    }
+
                     System.out.println("Client code is " + clientCode);
                     Integer codeForAuth = (ascii_value * 1000) % 65536;
                     System.out.println("Ascii is " + codeForAuth);
@@ -137,6 +167,7 @@ class ClientHandler implements Runnable {
                     }
                     else{
                         outputStream.write(SERVER_LOGIN_FAILED.getBytes(StandardCharsets.UTF_8));
+                        clientSocket.close();
                         outputStream.flush();
                     }
 
@@ -153,9 +184,8 @@ class ClientHandler implements Runnable {
 
     private static void sendErrorMessage(Socket clientSocket) throws IOException {
         OutputStream output = clientSocket.getOutputStream();
-        String errorMessage = "SERVER_SYNTAX_ERROR\u0007\u0008";
-        output.write(errorMessage.getBytes());
+        output.write(SERVER_SYNTAX_ERROR.getBytes());
         clientSocket.close();
-        System.out.println("Server sent error message to client: " + errorMessage);
+        System.out.println("Server sent error message to client: " + SERVER_SYNTAX_ERROR);
     }
 }
