@@ -55,7 +55,7 @@ class ClientHandler implements Runnable {
             String firstMessage = null;
             while (true) {
                 System.out.println("Big cycle");
-                String message = loadInput(inputStream, outputStream, 20);
+                String message = loadInput(inputStream, 20);
                 if (iteration == 0) {
                     // send key request
                     name = message;
@@ -145,15 +145,6 @@ class ClientHandler implements Runnable {
                         outputStream.flush();
                         break;
                     }
-//                    outputStream.write(SERVER_MOVE.getBytes(StandardCharsets.UTF_8));
-//                    outputStream.flush();
-//                    System.out.println("last message");
-//                    message = loadInput(inputStream, outputStream);
-//                    message = message.substring(0, message.length() - 2);
-//                    String[] parts = message.split(" ");
-//                    oldX = Integer.parseInt(parts[1]);
-//                    oldY = Integer.parseInt(parts[2]);
-//                    System.out.println("last message");
                         break;
                 }
                 iteration++;
@@ -170,13 +161,13 @@ class ClientHandler implements Runnable {
                 if(firstMove){
                     outputStream.write(SERVER_TURN_LEFT.getBytes(StandardCharsets.UTF_8));
                     outputStream.flush();
-                    message = loadInput(inputStream, outputStream, 12);
+                    message = loadInput(inputStream, 12);
                     getCoordinates(message, coords);
                     prevX = coords[0];
                     prevY = coords[1];
                     outputStream.write(SERVER_MOVE.getBytes(StandardCharsets.UTF_8));
                     outputStream.flush();
-                    message = loadInput(inputStream, outputStream, 12);
+                    message = loadInput(inputStream, 12);
                     getCoordinates(message, coords);
                     x = coords[0];
                     y = coords[1];
@@ -185,7 +176,7 @@ class ClientHandler implements Runnable {
                         outputStream.flush();
                         outputStream.write(SERVER_MOVE.getBytes(StandardCharsets.UTF_8));
                         outputStream.flush();
-                        message = loadInput(inputStream, outputStream, 12);
+                        message = loadInput(inputStream, 12);
                         getCoordinates(message, coords);
                         x = coords[0];
                         y = coords[1];
@@ -193,7 +184,7 @@ class ClientHandler implements Runnable {
                     firstMove = false;
                 }
                 else{
-                    message = loadInput(inputStream, outputStream, 12);
+                    message = loadInput(inputStream, 12);
                     System.out.println("Message is " + message);
                     getCoordinates(message, coords);
                     x = coords[0];
@@ -203,7 +194,7 @@ class ClientHandler implements Runnable {
                 if (x == 0 && y == 0) {
                     outputStream.write(SERVER_PICK_UP.getBytes(StandardCharsets.UTF_8));
                     outputStream.flush();
-                    String secret = loadInput(inputStream, outputStream, 100);
+                    String secret = loadInput(inputStream, 100);
                     System.out.println("Secret is " + secret);
                     outputStream.write(SERVER_LOGOUT.getBytes(StandardCharsets.UTF_8));
                     outputStream.flush();
@@ -297,7 +288,7 @@ class ClientHandler implements Runnable {
                 outputStream.write(SERVER_TURN_RIGHT.getBytes(StandardCharsets.UTF_8));
                 outputStream.flush();
                 System.out.println("Turned right");
-                response = loadInput(inputStream, outputStream, 12);
+                response = loadInput(inputStream, 12);
                 if(!response.startsWith("OK"))
                     return false;
             }
@@ -307,7 +298,7 @@ class ClientHandler implements Runnable {
                 outputStream.write(SERVER_TURN_LEFT.getBytes(StandardCharsets.UTF_8));
                 outputStream.flush();
                 System.out.println("Turned left");
-                response = loadInput(inputStream, outputStream, 12);
+                response = loadInput(inputStream, 12);
                 if(!response.startsWith("OK"))
                     return false;
             }
@@ -338,12 +329,12 @@ class ClientHandler implements Runnable {
         coords[1] = Integer.parseInt(parts[2]);
     }
 
-    private String loadInput(InputStream inputStream, OutputStream outputStream, int maxLenght) throws IOException {
+    private String loadInput(InputStream inputStream, int maxLenght) throws IOException {
         int totalBytesRead = 0;
         String message = "";
 
         ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
-        while (!message.endsWith("\u0007\u0008") && message.length() < 100) {
+        while (!message.endsWith("\u0007\u0008") && message.length() < maxLenght) {
             clientSocket.setSoTimeout(1500);
             try{
                 int bytesRead = 0;
